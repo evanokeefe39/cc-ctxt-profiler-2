@@ -59,6 +59,7 @@ export function renderDashboardHtml(
     .health-healthy { color: #22c55e; }
     .health-degraded { color: #f59e0b; }
     .health-unhealthy { color: #ef4444; }
+    .sev-btn.active { background: hsl(240, 3.7%, 25%); color: hsl(0, 0%, 98%); }
     .event-card { animation: fadeIn 0.3s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
     ::-webkit-scrollbar { width: 6px; }
@@ -101,13 +102,41 @@ export function renderDashboardHtml(
 
       <!-- Event feed -->
       <div class="rounded-lg border border-border bg-card p-4">
-        <h2 class="text-sm font-semibold mb-3">Event Feed</h2>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold">Event Feed</h2>
+          <div class="flex gap-1" id="severity-filters">
+            <button class="sev-btn active text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground" data-severity="all">All</button>
+            <button class="sev-btn text-[10px] px-2 py-0.5 rounded border border-border severity-info" data-severity="info">Info</button>
+            <button class="sev-btn text-[10px] px-2 py-0.5 rounded border border-border severity-warning" data-severity="warning">Warn</button>
+            <button class="sev-btn text-[10px] px-2 py-0.5 rounded border border-border severity-critical" data-severity="critical">Crit</button>
+          </div>
+        </div>
         <div id="event-feed" class="space-y-2 max-h-[600px] overflow-y-auto pr-1">
           ${eventFeed}
         </div>
       </div>
     </aside>
   </div>
+
+  <!-- Severity filter script -->
+  <script>
+    (function() {
+      const feed = document.getElementById('event-feed');
+      const filtersEl = document.getElementById('severity-filters');
+      if (filtersEl) {
+        filtersEl.addEventListener('click', function(e) {
+          const btn = e.target.closest('.sev-btn');
+          if (!btn) return;
+          filtersEl.querySelectorAll('.sev-btn').forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          var sev = btn.dataset.severity;
+          feed.querySelectorAll('.event-card').forEach(function(card) {
+            card.style.display = (sev === 'all' || card.dataset.severity === sev) ? '' : 'none';
+          });
+        });
+      }
+    })();
+  </script>
 
   <!-- SSE Client -->
   <script>
@@ -227,6 +256,7 @@ export function renderReportHtml(
     .health-healthy { color: #22c55e; }
     .health-degraded { color: #f59e0b; }
     .health-unhealthy { color: #ef4444; }
+    .sev-btn.active { background: hsl(240, 3.7%, 25%); color: hsl(0, 0%, 98%); }
   </style>
 </head>
 <body class="text-foreground min-h-screen">
@@ -251,13 +281,39 @@ export function renderReportHtml(
     <aside class="space-y-6">
       ${summaryPanel}
       <div class="rounded-lg border border-border bg-card p-4">
-        <h2 class="text-sm font-semibold mb-3">Events</h2>
-        <div class="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold">Events</h2>
+          <div class="flex gap-1" id="severity-filters">
+            <button class="sev-btn active text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground" data-severity="all">All</button>
+            <button class="sev-btn text-[10px] px-2 py-0.5 rounded border border-border severity-info" data-severity="info">Info</button>
+            <button class="sev-btn text-[10px] px-2 py-0.5 rounded border border-border severity-warning" data-severity="warning">Warn</button>
+            <button class="sev-btn text-[10px] px-2 py-0.5 rounded border border-border severity-critical" data-severity="critical">Crit</button>
+          </div>
+        </div>
+        <div id="event-feed" class="space-y-2 max-h-[600px] overflow-y-auto pr-1">
           ${eventFeed}
         </div>
       </div>
     </aside>
   </div>
+  <script>
+    (function() {
+      var feed = document.getElementById('event-feed');
+      var filtersEl = document.getElementById('severity-filters');
+      if (filtersEl) {
+        filtersEl.addEventListener('click', function(e) {
+          var btn = e.target.closest('.sev-btn');
+          if (!btn) return;
+          filtersEl.querySelectorAll('.sev-btn').forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          var sev = btn.dataset.severity;
+          feed.querySelectorAll('.event-card').forEach(function(card) {
+            card.style.display = (sev === 'all' || card.dataset.severity === sev) ? '' : 'none';
+          });
+        });
+      }
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -293,7 +349,7 @@ function renderEventFeed(events: DiagnosticEvent[]): string {
   );
   return sorted
     .map(
-      (e) => `<div class="event-card rounded border border-border bg-muted/30 px-3 py-2 text-xs">
+      (e) => `<div class="event-card rounded border border-border bg-muted/30 px-3 py-2 text-xs" data-severity="${e.severity}">
       <div class="flex items-center justify-between mb-0.5">
         <span class="font-medium severity-${e.severity}">${escapeHtml(e.type)}</span>
         <span class="text-muted-foreground">${formatTime(e.timestamp)}</span>
