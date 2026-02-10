@@ -1,0 +1,2 @@
+{"sessionId":"sess-100","uuid":"a1-001","timestamp":"2025-01-15T10:00:30Z","type":"assistant","message":{"role":"assistant","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"Exploring"}],"usage":{"input_tokens":8000,"output_tokens":300}}}
+{"sessionId":"sess-100","uuid":"a1-002","timestamp":"2025-01-15T10:01:00Z","type":"assistant","message":{"role":"assistant","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"Found it"}],"usage":{"input_tokens":20000,"output_tokens":400}}}

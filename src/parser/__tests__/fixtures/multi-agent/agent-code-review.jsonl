@@ -1,0 +1,1 @@
+{"sessionId":"sess-100","uuid":"a2-001","timestamp":"2025-01-15T10:01:30Z","type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"Reviewing code"}],"usage":{"input_tokens":30000,"output_tokens":800}}}

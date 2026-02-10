@@ -1,0 +1,50 @@
+{
+  "profiles": [
+    {
+      "id": "main-orchestrator",
+      "label": "Main session orchestrator",
+      "model": "claude-sonnet-4-5-20250929",
+      "budgets": {
+        "systemPrompt": 0.10,
+        "conversation": 0.50,
+        "toolResults": 0.30,
+        "outputReserve": 0.10
+      },
+      "alerts": {
+        "warningThreshold": 0.70,
+        "dumbZoneThreshold": 0.85,
+        "compactionTarget": 0.50,
+        "maxTurnsInDumbZone": 3,
+        "maxToolErrorRate": 0.15,
+        "expectedTurns": [10, 30]
+      }
+    },
+    {
+      "id": "explore-agent",
+      "label": "Codebase exploration agent",
+      "model": "claude-haiku-4-5-20251001",
+      "budgets": {
+        "systemPrompt": 0.10,
+        "conversation": 0.40,
+        "toolResults": 0.40,
+        "outputReserve": 0.10
+      },
+      "alerts": {
+        "warningThreshold": 0.65,
+        "dumbZoneThreshold": 0.80,
+        "compactionTarget": 0.45,
+        "maxTurnsInDumbZone": 2,
+        "maxToolErrorRate": 0.10,
+        "expectedTurns": [5, 15]
+      }
+    }
+  ],
+  "fallbackThresholds": {
+    "warningThreshold": 0.70,
+    "dumbZoneThreshold": 0.85,
+    "compactionTarget": 0.50,
+    "maxTurnsInDumbZone": 3,
+    "maxToolErrorRate": 0.15,
+    "expectedTurns": [10, 40]
+  }
+}
