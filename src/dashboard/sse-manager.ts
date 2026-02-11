@@ -1,38 +1,38 @@
-import type { ServerResponse } from 'node:http';
-
 export type SseEventType = 'agent_update' | 'diagnostic_event' | 'session_summary';
+
+export type SseWriteFn = (data: string) => void;
+
+interface SseClient {
+  write: SseWriteFn;
+  close: () => void;
+}
 
 /**
  * Manages Server-Sent Events connections and broadcasting.
+ * Transport-agnostic: stores write/close callbacks rather than raw response objects.
  */
 export class SseManager {
-  private clients = new Set<ServerResponse>();
+  private clients = new Map<string, SseClient>();
   private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
   /**
-   * Add a new SSE client connection.
+   * Register a new SSE client. Returns a cleanup function.
    */
-  addClient(res: ServerResponse): void {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
+  addClient(id: string, write: SseWriteFn, close: () => void): () => void {
+    this.clients.set(id, { write, close });
 
-    // Send initial comment to establish connection
-    res.write(':ok\n\n');
-
-    this.clients.add(res);
-
-    res.on('close', () => {
-      this.clients.delete(res);
-    });
-
-    // Start keepalive if this is the first client
     if (this.clients.size === 1 && !this.keepAliveInterval) {
       this.startKeepAlive();
     }
+
+    return () => this.removeClient(id);
+  }
+
+  /**
+   * Remove a client by ID.
+   */
+  removeClient(id: string): void {
+    this.clients.delete(id);
   }
 
   /**
@@ -40,11 +40,11 @@ export class SseManager {
    */
   broadcast(type: SseEventType, data: unknown): void {
     const payload = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
-    for (const client of this.clients) {
+    for (const [id, client] of this.clients) {
       try {
         client.write(payload);
       } catch {
-        this.clients.delete(client);
+        this.clients.delete(id);
       }
     }
   }
@@ -64,9 +64,9 @@ export class SseManager {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
     }
-    for (const client of this.clients) {
+    for (const [, client] of this.clients) {
       try {
-        client.end();
+        client.close();
       } catch {
         // ignore
       }
@@ -81,11 +81,11 @@ export class SseManager {
         this.keepAliveInterval = null;
         return;
       }
-      for (const client of this.clients) {
+      for (const [id, client] of this.clients) {
         try {
           client.write(':ping\n\n');
         } catch {
-          this.clients.delete(client);
+          this.clients.delete(id);
         }
       }
     }, 15_000);

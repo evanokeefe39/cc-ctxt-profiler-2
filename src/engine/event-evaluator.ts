@@ -5,7 +5,7 @@ import type {
   DiagnosticEventType,
   Severity,
 } from '../schemas/index.js';
-import { COMPACTION_DROP_THRESHOLD, FALLBACK_THRESHOLDS } from '../schemas/index.js';
+import { COMPACTION_DROP_THRESHOLD, DEFAULT_ALERTS } from '../schemas/index.js';
 
 export interface EvaluatorConfig {
   agentId: string;
@@ -15,7 +15,7 @@ export interface EvaluatorConfig {
   compactionTarget: number;
   maxTurnsInDumbZone: number;
   maxToolErrorRate: number;
-  expectedTurns: [number, number];
+  maxTurnsTotal: number;
 }
 
 interface EvaluatorState {
@@ -38,12 +38,12 @@ export class EventEvaluator {
 
   constructor(config: Partial<EvaluatorConfig> & { agentId: string }) {
     this.config = {
-      warningThreshold: FALLBACK_THRESHOLDS.warningThreshold,
-      dumbZoneThreshold: FALLBACK_THRESHOLDS.dumbZoneThreshold,
-      compactionTarget: FALLBACK_THRESHOLDS.compactionTarget,
-      maxTurnsInDumbZone: FALLBACK_THRESHOLDS.maxTurnsInDumbZone,
-      maxToolErrorRate: FALLBACK_THRESHOLDS.maxToolErrorRate,
-      expectedTurns: [...FALLBACK_THRESHOLDS.expectedTurns],
+      warningThreshold: DEFAULT_ALERTS.warningThreshold,
+      dumbZoneThreshold: DEFAULT_ALERTS.dumbZoneThreshold,
+      compactionTarget: DEFAULT_ALERTS.compactionTarget,
+      maxTurnsInDumbZone: DEFAULT_ALERTS.maxTurnsInDumbZone,
+      maxToolErrorRate: DEFAULT_ALERTS.maxToolErrorRate,
+      maxTurnsTotal: DEFAULT_ALERTS.maxTurnsTotal,
       ...config,
     };
 
@@ -83,12 +83,12 @@ export class EventEvaluator {
         }),
       );
 
-      // unmatched_agent — no profile match
+      // unmatched_agent — no profile match (warning severity)
       if (!config.profileId) {
         events.push(
           this.emit(
             point.t,
-            'info',
+            'warning',
             'unmatched_agent',
             `Agent ${config.agentId} has no matching profile — using fallback thresholds`,
           ),
@@ -185,17 +185,17 @@ export class EventEvaluator {
       );
     }
 
-    // 6. scope_creep — total turns > expectedTurns[1]
-    if (state.turnCount > config.expectedTurns[1]) {
+    // 6. scope_creep — total turns > maxTurnsTotal
+    if (state.turnCount > config.maxTurnsTotal) {
       events.push(
         this.emit(
           point.t,
           'warning',
           'scope_creep',
-          `Agent ${config.agentId} has ${state.turnCount} turns, exceeding expected max of ${config.expectedTurns[1]}`,
+          `Agent ${config.agentId} has ${state.turnCount} turns, exceeding expected max of ${config.maxTurnsTotal}`,
           {
             turns: state.turnCount,
-            expectedMax: config.expectedTurns[1],
+            expectedMax: config.maxTurnsTotal,
           },
         ),
       );

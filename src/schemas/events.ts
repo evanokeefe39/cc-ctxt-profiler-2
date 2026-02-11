@@ -4,6 +4,7 @@ export const DiagnosticEventType = z.enum([
   'agent_started',
   'agent_completed',
   'unmatched_agent',
+  'profile_mismatch',
   'warning_threshold_crossed',
   'dumbzone_entered',
   'dumbzone_lingering',
@@ -12,7 +13,6 @@ export const DiagnosticEventType = z.enum([
   'scope_creep',
   'tool_error_spike',
   'budget_overrun',
-  'context_limit_approaching',
 ]);
 
 export type DiagnosticEventType = z.infer<typeof DiagnosticEventType>;

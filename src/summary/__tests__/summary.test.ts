@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { classifyHealth } from '../health-classifier.js';
 import { generateInsights } from '../insight-generator.js';
 import { generateSuggestions } from '../suggestion-generator.js';
@@ -52,7 +52,7 @@ describe('classifyHealth', () => {
       warningThreshold: 0.70,
       dumbZoneThreshold: 0.85,
       maxToolErrorRate: 0.15,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     });
     expect(health).toBe('healthy');
   });
@@ -66,7 +66,7 @@ describe('classifyHealth', () => {
       warningThreshold: 0.70,
       dumbZoneThreshold: 0.85,
       maxToolErrorRate: 0.15,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     });
     expect(health).toBe('unhealthy');
   });
@@ -80,7 +80,7 @@ describe('classifyHealth', () => {
       warningThreshold: 0.70,
       dumbZoneThreshold: 0.85,
       maxToolErrorRate: 0.15,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     });
     expect(health).toBe('degraded');
   });
@@ -97,12 +97,12 @@ describe('classifyHealth', () => {
       warningThreshold: 0.70,
       dumbZoneThreshold: 0.85,
       maxToolErrorRate: 0.15,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     });
     expect(health).toBe('degraded');
   });
 
-  it('returns unhealthy when >2x expected turns', () => {
+  it('returns unhealthy when >2x maxTurnsTotal', () => {
     const pcts = Array.from({ length: 42 }, (_, i) => 0.1 + (i * 0.01));
     const ts = makeTimeSeries('a', pcts);
     const health = classifyHealth({
@@ -111,7 +111,7 @@ describe('classifyHealth', () => {
       warningThreshold: 0.70,
       dumbZoneThreshold: 0.85,
       maxToolErrorRate: 0.15,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     });
     expect(health).toBe('unhealthy');
   });
@@ -124,7 +124,7 @@ describe('classifyHealth', () => {
       warningThreshold: 0.70,
       dumbZoneThreshold: 0.85,
       maxToolErrorRate: 0.15,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     });
     expect(health).toBe('healthy');
   });
@@ -190,7 +190,7 @@ describe('generateSuggestions', () => {
       events,
       dumbZoneThreshold: 0.85,
       warningThreshold: 0.70,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     }]);
     expect(suggestions[0].priority).toBe(1);
   });
@@ -205,7 +205,7 @@ describe('generateSuggestions', () => {
       events,
       dumbZoneThreshold: 0.85,
       warningThreshold: 0.70,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     }]);
     expect(suggestions.some((s) => s.priority === 3)).toBe(true);
   });
@@ -218,7 +218,7 @@ describe('generateSuggestions', () => {
       events: [makeEvent(id, 'dumbzone_lingering', 'critical')],
       dumbZoneThreshold: 0.85,
       warningThreshold: 0.70,
-      expectedTurns: [5, 20] as [number, number],
+      maxTurnsTotal: 20,
     });
     const suggestions = generateSuggestions([makeInput('a'), makeInput('b')]);
     expect(suggestions.some((s) => s.priority === 5)).toBe(true);
@@ -237,7 +237,7 @@ describe('generateSuggestions', () => {
       events,
       dumbZoneThreshold: 0.85,
       warningThreshold: 0.70,
-      expectedTurns: [5, 20],
+      maxTurnsTotal: 20,
     }]);
     for (let i = 1; i < suggestions.length; i++) {
       expect(suggestions[i].priority).toBeGreaterThanOrEqual(suggestions[i - 1].priority);
@@ -262,6 +262,20 @@ describe('buildSessionSummary', () => {
     expect(summary.agents).toHaveLength(2);
     expect(summary.insights.length).toBeGreaterThan(0);
     expect(summary.overallHealth).toBeDefined();
+    expect(summary.totalDuration).toBeGreaterThanOrEqual(0);
+  });
+
+  it('computes new agent summary fields', () => {
+    const agents = [makeTimeSeries('main', [0.1, 0.3, 0.5])];
+    const events: DiagnosticEvent[] = [makeEvent('main', 'agent_started')];
+
+    const summary = buildSessionSummary('sess-001', agents, events);
+    const agent = summary.agents[0];
+    expect(agent.avgContextPct).toBeCloseTo(0.3, 1);
+    expect(agent.eventCounts).toBeDefined();
+    expect(agent.eventCounts['agent_started']).toBe(1);
+    expect(agent.toolCallCount).toBe(0);
+    expect(agent.toolErrorCount).toBe(0);
   });
 
   it('overall health is worst of all agents', () => {

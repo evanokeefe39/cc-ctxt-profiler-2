@@ -1,9 +1,20 @@
-import type { ContextWindowProfile, ProfilesConfig } from '../schemas/index.js';
-import { FALLBACK_THRESHOLDS } from '../schemas/index.js';
+import type { ContextWindowProfile, ProfilesConfig, Alerts } from '../schemas/index.js';
+import { FALLBACK_THRESHOLDS, DEFAULT_ALERTS } from '../schemas/index.js';
 
 export interface MatchedProfile {
   profile: ContextWindowProfile;
   matchType: 'exact' | 'model-fallback';
+}
+
+/**
+ * Extract model family (opus/sonnet/haiku) from a model string.
+ */
+export function extractModelFamily(model: string): 'opus' | 'sonnet' | 'haiku' | null {
+  const lower = model.toLowerCase();
+  if (lower.includes('opus')) return 'opus';
+  if (lower.includes('sonnet')) return 'sonnet';
+  if (lower.includes('haiku')) return 'haiku';
+  return null;
 }
 
 /**
@@ -31,7 +42,7 @@ export function matchProfile(
 }
 
 /**
- * Get effective thresholds for an agent — from matched profile or fallback.
+ * Get effective thresholds for an agent — from matched profile or per-model fallback.
  */
 export function getEffectiveThresholds(
   agentId: string,
@@ -47,9 +58,21 @@ export function getEffectiveThresholds(
     };
   }
 
-  const fallback = config?.fallbackThresholds ?? FALLBACK_THRESHOLDS;
+  // Per-model fallback from config or built-in defaults
+  const family = extractModelFamily(model);
+  const configFallback = config?.fallbackThresholds;
+
+  let alerts: Alerts | typeof DEFAULT_ALERTS;
+  if (configFallback && family && configFallback[family]) {
+    alerts = configFallback[family];
+  } else if (family) {
+    alerts = FALLBACK_THRESHOLDS[family];
+  } else {
+    alerts = DEFAULT_ALERTS;
+  }
+
   return {
-    ...fallback,
+    ...alerts,
     profileId: undefined as string | undefined,
     matchType: 'none' as const,
   };

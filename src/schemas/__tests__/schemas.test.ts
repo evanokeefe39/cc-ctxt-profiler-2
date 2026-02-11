@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import {
   UsageSchema,
   TranscriptLineSchema,
@@ -94,13 +94,14 @@ describe('TranscriptLineSchema', () => {
 describe('ContextWindowProfileSchema', () => {
   const validProfile = {
     id: 'main-agent',
-    label: 'Main orchestrator',
+    displayName: 'Main orchestrator',
     model: 'claude-sonnet-4-5-20250929',
+    taskComplexity: 'generation' as const,
+    contextWindowTokens: 200000,
     budgets: {
       systemPrompt: 0.10,
-      conversation: 0.50,
-      toolResults: 0.30,
-      outputReserve: 0.10,
+      toolDefinitions: 0.30,
+      working: 0.60,
     },
     alerts: {
       warningThreshold: 0.70,
@@ -108,7 +109,7 @@ describe('ContextWindowProfileSchema', () => {
       compactionTarget: 0.50,
       maxTurnsInDumbZone: 3,
       maxToolErrorRate: 0.15,
-      expectedTurns: [10, 30] as [number, number],
+      maxTurnsTotal: 30,
     },
   };
 
@@ -134,6 +135,15 @@ describe('ContextWindowProfileSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects invalid taskComplexity', () => {
+    expect(() =>
+      ContextWindowProfileSchema.parse({
+        ...validProfile,
+        taskComplexity: 'invalid',
+      }),
+    ).toThrow();
+  });
 });
 
 describe('ProfilesConfigSchema', () => {
@@ -143,7 +153,7 @@ describe('ProfilesConfigSchema', () => {
       fallbackThresholds: FALLBACK_THRESHOLDS,
     };
     const result = ProfilesConfigSchema.parse(config);
-    expect(result.fallbackThresholds?.warningThreshold).toBe(0.70);
+    expect(result.fallbackThresholds?.opus?.warningThreshold).toBe(0.60);
   });
 
   it('accepts config without fallbackThresholds', () => {
@@ -179,6 +189,32 @@ describe('DiagnosticEventSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts profile_mismatch event type', () => {
+    const event = {
+      id: 'pm123456',
+      timestamp: '2025-01-15T10:00:00Z',
+      agentId: 'main',
+      severity: 'warning',
+      type: 'profile_mismatch',
+      message: 'Profile mismatch detected',
+    };
+    const result = DiagnosticEventSchema.parse(event);
+    expect(result.type).toBe('profile_mismatch');
+  });
+
+  it('rejects context_limit_approaching (removed)', () => {
+    expect(() =>
+      DiagnosticEventSchema.parse({
+        id: 'x',
+        timestamp: 'now',
+        agentId: 'a',
+        severity: 'info',
+        type: 'context_limit_approaching',
+        message: 'bad',
+      }),
+    ).toThrow();
+  });
 });
 
 describe('AgentTimeSeriesSchema', () => {
@@ -206,9 +242,18 @@ describe('Constants', () => {
     expect(MODEL_LIMITS['claude-sonnet-4-5-20250929']).toBe(200_000);
   });
 
-  it('has profile templates', () => {
+  it('has per-model fallback thresholds', () => {
+    expect(FALLBACK_THRESHOLDS.opus.warningThreshold).toBe(0.60);
+    expect(FALLBACK_THRESHOLDS.sonnet.dumbZoneThreshold).toBe(0.75);
+    expect(FALLBACK_THRESHOLDS.haiku.dumbZoneThreshold).toBe(0.70);
+  });
+
+  it('has profile templates with new budget keys', () => {
     expect(PROFILE_TEMPLATES.retrieval.warningThreshold).toBe(0.70);
     expect(PROFILE_TEMPLATES.analysis.dumbZoneThreshold).toBe(0.65);
     expect(PROFILE_TEMPLATES.generation.warningThreshold).toBe(0.60);
+    expect(PROFILE_TEMPLATES.retrieval.budgets.toolDefinitions).toBe(0.30);
+    expect(PROFILE_TEMPLATES.retrieval.budgets.working).toBe(0.60);
+    expect(PROFILE_TEMPLATES.retrieval.maxTurnsTotal).toBe(30);
   });
 });

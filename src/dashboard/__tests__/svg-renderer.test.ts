@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { renderAgentSvg } from '../svg-renderer.js';
 import type { AgentTimeSeries } from '../../schemas/index.js';
 

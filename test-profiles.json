@@ -2,13 +2,14 @@
   "profiles": [
     {
       "id": "main-orchestrator",
-      "label": "Main session orchestrator",
+      "displayName": "Main session orchestrator",
       "model": "claude-sonnet-4-5-20250929",
+      "taskComplexity": "generation",
+      "contextWindowTokens": 200000,
       "budgets": {
         "systemPrompt": 0.10,
-        "conversation": 0.50,
-        "toolResults": 0.30,
-        "outputReserve": 0.10
+        "toolDefinitions": 0.30,
+        "working": 0.60
       },
       "alerts": {
         "warningThreshold": 0.70,
@@ -16,18 +17,19 @@
         "compactionTarget": 0.50,
         "maxTurnsInDumbZone": 3,
         "maxToolErrorRate": 0.15,
-        "expectedTurns": [10, 30]
+        "maxTurnsTotal": 30
       }
     },
     {
       "id": "explore-agent",
-      "label": "Codebase exploration agent",
+      "displayName": "Codebase exploration agent",
       "model": "claude-haiku-4-5-20251001",
+      "taskComplexity": "retrieval",
+      "contextWindowTokens": 200000,
       "budgets": {
         "systemPrompt": 0.10,
-        "conversation": 0.40,
-        "toolResults": 0.40,
-        "outputReserve": 0.10
+        "toolDefinitions": 0.30,
+        "working": 0.60
       },
       "alerts": {
         "warningThreshold": 0.65,
@@ -35,16 +37,34 @@
         "compactionTarget": 0.45,
         "maxTurnsInDumbZone": 2,
         "maxToolErrorRate": 0.10,
-        "expectedTurns": [5, 15]
+        "maxTurnsTotal": 15
       }
     }
   ],
   "fallbackThresholds": {
-    "warningThreshold": 0.70,
-    "dumbZoneThreshold": 0.85,
-    "compactionTarget": 0.50,
-    "maxTurnsInDumbZone": 3,
-    "maxToolErrorRate": 0.15,
-    "expectedTurns": [10, 40]
+    "opus": {
+      "warningThreshold": 0.60,
+      "dumbZoneThreshold": 0.80,
+      "compactionTarget": 0.35,
+      "maxTurnsInDumbZone": 3,
+      "maxToolErrorRate": 0.15,
+      "maxTurnsTotal": 40
+    },
+    "sonnet": {
+      "warningThreshold": 0.55,
+      "dumbZoneThreshold": 0.75,
+      "compactionTarget": 0.30,
+      "maxTurnsInDumbZone": 3,
+      "maxToolErrorRate": 0.15,
+      "maxTurnsTotal": 40
+    },
+    "haiku": {
+      "warningThreshold": 0.55,
+      "dumbZoneThreshold": 0.70,
+      "compactionTarget": 0.30,
+      "maxTurnsInDumbZone": 2,
+      "maxToolErrorRate": 0.15,
+      "maxTurnsTotal": 30
+    }
   }
 }

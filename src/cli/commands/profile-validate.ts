@@ -30,8 +30,8 @@ export const profileValidateCommand = new Command('validate')
     if (errors.length === 0) {
       console.log('\nAll profiles are valid!');
       for (const p of config.profiles) {
-        console.log(`  - ${p.id}: ${p.label} (${p.model})`);
-        console.log(`    Warning: ${(p.alerts.warningThreshold * 100).toFixed(0)}% | Dumb zone: ${(p.alerts.dumbZoneThreshold * 100).toFixed(0)}% | Turns: ${p.alerts.expectedTurns[0]}-${p.alerts.expectedTurns[1]}`);
+        console.log(`  - ${p.id}: ${p.displayName} (${p.model})`);
+        console.log(`    Warning: ${(p.alerts.warningThreshold * 100).toFixed(0)}% | Dumb zone: ${(p.alerts.dumbZoneThreshold * 100).toFixed(0)}% | Max turns: ${p.alerts.maxTurnsTotal}`);
       }
     } else {
       console.error(`\nFound ${errors.length} validation error(s):\n`);

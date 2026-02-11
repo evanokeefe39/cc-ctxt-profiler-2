@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
+import { Database } from 'bun:sqlite';
 import type {
   AgentTimeSeries,
   DiagnosticEvent,
@@ -14,6 +15,7 @@ import { extractToolStats } from '../engine/tool-extractor.js';
 import { buildSessionSummary } from '../summary/index.js';
 import { createDashboardServer, type DashboardServer } from '../dashboard/index.js';
 import { renderAgentSvg } from '../dashboard/svg-renderer.js';
+import { insertLines, insertEvents, updateAgentStats } from '../db/ingest.js';
 import { FileWatcher } from './file-watcher.js';
 
 export interface SessionMonitorOptions {
@@ -22,6 +24,12 @@ export interface SessionMonitorOptions {
   port?: number;
   eventsLogFile?: string;
   onEvent?: (event: DiagnosticEvent) => void;
+  /** Optional SQLite database for persistence (dual-write). */
+  db?: Database;
+  /** Project key for SQLite persistence. */
+  projectKey?: string;
+  /** Session ID for SQLite persistence. */
+  sessionId?: string;
 }
 
 /**
@@ -142,6 +150,8 @@ export class SessionMonitor {
       (l) => l.type === 'assistant' && l.message.usage,
     );
 
+    const turnEvents: DiagnosticEvent[] = [];
+
     for (let i = 0; i < assistantLines.length; i++) {
       const line = assistantLines[i];
       const usage = line.message.usage!;
@@ -165,6 +175,7 @@ export class SessionMonitor {
 
       for (const event of events) {
         this.allEvents.push(event);
+        turnEvents.push(event);
         this.logEvent(event);
         this.options.onEvent?.(event);
 
@@ -174,6 +185,16 @@ export class SessionMonitor {
           html: renderEventHtml(event),
         });
       }
+    }
+
+    // Dual-write to SQLite if configured
+    const { db, projectKey, sessionId } = this.options;
+    if (db && projectKey && sessionId) {
+      insertLines(db, lines, projectKey, sessionId, name);
+      if (turnEvents.length > 0) {
+        insertEvents(db, turnEvents, projectKey, sessionId);
+      }
+      updateAgentStats(db, projectKey, sessionId, name);
     }
 
     // Broadcast agent update
@@ -201,7 +222,7 @@ export class SessionMonitor {
         compactionTarget: thresholds.compactionTarget,
         maxTurnsInDumbZone: thresholds.maxTurnsInDumbZone,
         maxToolErrorRate: thresholds.maxToolErrorRate,
-        expectedTurns: thresholds.expectedTurns,
+        maxTurnsTotal: thresholds.maxTurnsTotal,
       }),
     );
   }

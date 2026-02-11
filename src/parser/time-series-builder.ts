@@ -1,5 +1,5 @@
 import type { TranscriptLine, TimeSeriesPoint, AgentTimeSeries } from '../schemas/index.js';
-import { MODEL_LIMITS, DEFAULT_CONTEXT_LIMIT, FALLBACK_THRESHOLDS } from '../schemas/index.js';
+import { MODEL_LIMITS, DEFAULT_CONTEXT_LIMIT, DEFAULT_ALERTS } from '../schemas/index.js';
 import { computeUsedTokens } from './token-calculator.js';
 import { detectCompactions } from './compaction-detector.js';
 
@@ -44,8 +44,8 @@ export function buildAgentTimeSeries(
     model,
     label,
     limit,
-    threshold: FALLBACK_THRESHOLDS.dumbZoneThreshold,
-    warningThreshold: FALLBACK_THRESHOLDS.warningThreshold,
+    threshold: DEFAULT_ALERTS.dumbZoneThreshold,
+    warningThreshold: DEFAULT_ALERTS.warningThreshold,
     points,
     compactions,
   };

@@ -1,18 +1,20 @@
 import type { ContextWindowProfile } from '../schemas/index.js';
-import { PROFILE_TEMPLATES } from '../schemas/index.js';
+import { PROFILE_TEMPLATES, DEFAULT_CONTEXT_LIMIT } from '../schemas/index.js';
 
 /**
  * Get a built-in profile template for a given task type.
  */
 export function getTemplate(
   taskType: keyof typeof PROFILE_TEMPLATES,
-  overrides?: { id?: string; label?: string; model?: string },
+  overrides?: { id?: string; displayName?: string; model?: string; contextWindowTokens?: number },
 ): ContextWindowProfile {
   const template = PROFILE_TEMPLATES[taskType];
   return {
     id: overrides?.id ?? taskType,
-    label: overrides?.label ?? `${taskType} agent`,
+    displayName: overrides?.displayName ?? `${taskType} agent`,
     model: overrides?.model ?? 'claude-sonnet-4-5-20250929',
+    taskComplexity: taskType,
+    contextWindowTokens: overrides?.contextWindowTokens ?? DEFAULT_CONTEXT_LIMIT,
     budgets: { ...template.budgets },
     alerts: {
       warningThreshold: template.warningThreshold,
@@ -20,7 +22,7 @@ export function getTemplate(
       compactionTarget: template.compactionTarget,
       maxTurnsInDumbZone: template.maxTurnsInDumbZone,
       maxToolErrorRate: template.maxToolErrorRate,
-      expectedTurns: [...template.expectedTurns],
+      maxTurnsTotal: template.maxTurnsTotal,
     },
   };
 }

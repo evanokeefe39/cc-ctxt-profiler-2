@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
 import { createBrowseServer } from '../../dashboard/browse-server.js';
+import { openDatabase } from '../../db/database.js';
+import { ingestAll } from '../../db/ingest.js';
 import { loadProfiles } from '../../profiles/loader.js';
 
 export const browseCommand = new Command('browse')
@@ -30,8 +32,14 @@ export const browseCommand = new Command('browse')
       }
     }
 
+    // Open database and do initial ingest
+    const { db, close: closeDb } = openDatabase();
+    console.log('Indexing sessions...');
+    const newMessages = ingestAll(db, projectsDir);
+    console.log(`Indexed ${newMessages} new messages`);
+
     const port = parseInt(opts.port, 10);
-    const server = createBrowseServer(projectsDir, profilesConfig);
+    const server = createBrowseServer(db, projectsDir, profilesConfig);
     const url = await server.start(port);
 
     console.log(`\nSession browser running at ${url}`);
@@ -55,6 +63,7 @@ export const browseCommand = new Command('browse')
     const shutdown = async () => {
       console.log('\nShutting down...');
       await server.stop();
+      closeDb();
       process.exit(0);
     };
 

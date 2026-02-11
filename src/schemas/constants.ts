@@ -19,15 +19,43 @@ export const DEFAULT_CONTEXT_LIMIT = 200_000;
 /** If pct drops by more than this between consecutive points, it's a compaction. */
 export const COMPACTION_DROP_THRESHOLD = 0.05;
 
-/** Fallback thresholds when no profile matches. */
+/** Fallback thresholds when no profile matches — per model family. */
 export const FALLBACK_THRESHOLDS = {
-  warningThreshold: 0.70,
-  dumbZoneThreshold: 0.85,
-  compactionTarget: 0.50,
+  opus: {
+    warningThreshold: 0.60,
+    dumbZoneThreshold: 0.80,
+    compactionTarget: 0.35,
+    maxTurnsInDumbZone: 3,
+    maxToolErrorRate: 0.15,
+    maxTurnsTotal: 40,
+  },
+  sonnet: {
+    warningThreshold: 0.55,
+    dumbZoneThreshold: 0.75,
+    compactionTarget: 0.30,
+    maxTurnsInDumbZone: 3,
+    maxToolErrorRate: 0.15,
+    maxTurnsTotal: 40,
+  },
+  haiku: {
+    warningThreshold: 0.55,
+    dumbZoneThreshold: 0.70,
+    compactionTarget: 0.30,
+    maxTurnsInDumbZone: 2,
+    maxToolErrorRate: 0.15,
+    maxTurnsTotal: 30,
+  },
+} as const;
+
+/** Default thresholds used when model family cannot be determined. */
+export const DEFAULT_ALERTS = {
+  warningThreshold: 0.55,
+  dumbZoneThreshold: 0.75,
+  compactionTarget: 0.30,
   maxTurnsInDumbZone: 3,
   maxToolErrorRate: 0.15,
-  expectedTurns: [10, 40] as [number, number],
-};
+  maxTurnsTotal: 40,
+} as const;
 
 /** Built-in profile templates keyed by task type. */
 export const PROFILE_TEMPLATES = {
@@ -37,12 +65,11 @@ export const PROFILE_TEMPLATES = {
     compactionTarget: 0.50,
     maxTurnsInDumbZone: 3,
     maxToolErrorRate: 0.15,
-    expectedTurns: [10, 30] as [number, number],
+    maxTurnsTotal: 30,
     budgets: {
       systemPrompt: 0.10,
-      conversation: 0.50,
-      toolResults: 0.30,
-      outputReserve: 0.10,
+      toolDefinitions: 0.30,
+      working: 0.60,
     },
   },
   analysis: {
@@ -51,12 +78,11 @@ export const PROFILE_TEMPLATES = {
     compactionTarget: 0.35,
     maxTurnsInDumbZone: 2,
     maxToolErrorRate: 0.10,
-    expectedTurns: [5, 20] as [number, number],
+    maxTurnsTotal: 20,
     budgets: {
       systemPrompt: 0.15,
-      conversation: 0.40,
-      toolResults: 0.35,
-      outputReserve: 0.10,
+      toolDefinitions: 0.25,
+      working: 0.60,
     },
   },
   generation: {
@@ -65,12 +91,11 @@ export const PROFILE_TEMPLATES = {
     compactionTarget: 0.40,
     maxTurnsInDumbZone: 3,
     maxToolErrorRate: 0.12,
-    expectedTurns: [8, 25] as [number, number],
+    maxTurnsTotal: 25,
     budgets: {
       systemPrompt: 0.10,
-      conversation: 0.45,
-      toolResults: 0.25,
-      outputReserve: 0.20,
+      toolDefinitions: 0.20,
+      working: 0.70,
     },
   },
 } as const;

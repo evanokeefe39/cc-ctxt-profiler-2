@@ -7,7 +7,7 @@ export interface SuggestionInput {
   events: DiagnosticEvent[];
   dumbZoneThreshold: number;
   warningThreshold: number;
-  expectedTurns: [number, number];
+  maxTurnsTotal: number;
 }
 
 /**
@@ -24,7 +24,7 @@ export function generateSuggestions(inputs: SuggestionInput[]): Suggestion[] {
   const suggestions: Suggestion[] = [];
 
   for (const input of inputs) {
-    const { agentId, health, events, timeSeries, dumbZoneThreshold, warningThreshold, expectedTurns } = input;
+    const { agentId, health, events, timeSeries, dumbZoneThreshold, warningThreshold, maxTurnsTotal } = input;
 
     // P1: Unhealthy agents
     if (health === 'unhealthy') {
@@ -39,11 +39,11 @@ export function generateSuggestions(inputs: SuggestionInput[]): Suggestion[] {
       }
 
       const totalTurns = timeSeries.points.length;
-      if (totalTurns > expectedTurns[1] * 2) {
+      if (totalTurns > maxTurnsTotal * 2) {
         suggestions.push({
           priority: 1,
           agentId,
-          message: `Agent "${agentId}" used ${totalTurns} turns (expected max: ${expectedTurns[1]}). This suggests scope creep or an inefficient approach.`,
+          message: `Agent "${agentId}" used ${totalTurns} turns (expected max: ${maxTurnsTotal}). This suggests scope creep or an inefficient approach.`,
           action: 'Review task scope and expected turn range',
         });
       }

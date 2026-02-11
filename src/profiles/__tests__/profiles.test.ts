@@ -1,23 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadProfiles } from '../loader.js';
-import { matchProfile, getEffectiveThresholds } from '../matcher.js';
+import { matchProfile, getEffectiveThresholds, extractModelFamily } from '../matcher.js';
 import { validateProfiles } from '../validator.js';
 import { getTemplate, getTemplateNames } from '../templates.js';
 import type { ProfilesConfig } from '../../schemas/index.js';
-import { FALLBACK_THRESHOLDS } from '../../schemas/index.js';
+import { FALLBACK_THRESHOLDS, DEFAULT_ALERTS } from '../../schemas/index.js';
 
 const validProfile = {
   id: 'main-agent',
-  label: 'Main orchestrator',
+  displayName: 'Main orchestrator',
   model: 'claude-sonnet-4-5-20250929',
+  taskComplexity: 'generation' as const,
+  contextWindowTokens: 200000,
   budgets: {
     systemPrompt: 0.10,
-    conversation: 0.50,
-    toolResults: 0.30,
-    outputReserve: 0.10,
+    toolDefinitions: 0.30,
+    working: 0.60,
   },
   alerts: {
     warningThreshold: 0.70,
@@ -25,7 +26,7 @@ const validProfile = {
     compactionTarget: 0.50,
     maxTurnsInDumbZone: 3,
     maxToolErrorRate: 0.15,
-    expectedTurns: [10, 30] as [number, number],
+    maxTurnsTotal: 30,
   },
 };
 
@@ -53,6 +54,24 @@ describe('loadProfiles', () => {
     writeFileSync(filePath, 'not json');
     expect(() => loadProfiles(filePath)).toThrow();
     rmSync(tmpDir, { recursive: true });
+  });
+});
+
+describe('extractModelFamily', () => {
+  it('extracts opus', () => {
+    expect(extractModelFamily('claude-opus-4-6')).toBe('opus');
+  });
+
+  it('extracts sonnet', () => {
+    expect(extractModelFamily('claude-sonnet-4-5-20250929')).toBe('sonnet');
+  });
+
+  it('extracts haiku', () => {
+    expect(extractModelFamily('claude-haiku-4-5-20251001')).toBe('haiku');
+  });
+
+  it('returns null for unknown model', () => {
+    expect(extractModelFamily('gpt-4-turbo')).toBeNull();
   });
 });
 
@@ -88,10 +107,22 @@ describe('getEffectiveThresholds', () => {
     expect(t.warningThreshold).toBe(0.70);
   });
 
-  it('uses fallback thresholds when no match', () => {
-    const t = getEffectiveThresholds('unknown', 'unknown', validConfig);
+  it('uses per-model fallback when no match', () => {
+    const t = getEffectiveThresholds('unknown', 'claude-opus-4-6', validConfig);
     expect(t.profileId).toBeUndefined();
-    expect(t.warningThreshold).toBe(FALLBACK_THRESHOLDS.warningThreshold);
+    expect(t.warningThreshold).toBe(FALLBACK_THRESHOLDS.opus.warningThreshold);
+  });
+
+  it('uses sonnet fallback for sonnet models', () => {
+    const configNoProfiles: ProfilesConfig = { profiles: [] };
+    const t = getEffectiveThresholds('unknown', 'claude-sonnet-4-5-20250929', configNoProfiles);
+    expect(t.warningThreshold).toBe(FALLBACK_THRESHOLDS.sonnet.warningThreshold);
+  });
+
+  it('uses default alerts for unknown model family', () => {
+    const configNoProfiles: ProfilesConfig = { profiles: [] };
+    const t = getEffectiveThresholds('unknown', 'gpt-4-turbo', configNoProfiles);
+    expect(t.warningThreshold).toBe(DEFAULT_ALERTS.warningThreshold);
   });
 });
 
@@ -129,28 +160,14 @@ describe('validateProfiles', () => {
           ...validProfile,
           budgets: {
             systemPrompt: 0.50,
-            conversation: 0.50,
-            toolResults: 0.50,
-            outputReserve: 0.50,
+            toolDefinitions: 0.50,
+            working: 0.50,
           },
         },
       ],
     };
     const errors = validateProfiles(config);
     expect(errors.some((e) => e.field === 'budgets')).toBe(true);
-  });
-
-  it('catches expectedTurns min > max', () => {
-    const config: ProfilesConfig = {
-      profiles: [
-        {
-          ...validProfile,
-          alerts: { ...validProfile.alerts, expectedTurns: [30, 10] },
-        },
-      ],
-    };
-    const errors = validateProfiles(config);
-    expect(errors.some((e) => e.field === 'alerts.expectedTurns')).toBe(true);
   });
 
   it('warns about unrecognized model', () => {
@@ -175,12 +192,13 @@ describe('templates', () => {
     expect(profile.id).toBe('retrieval');
     expect(profile.alerts.warningThreshold).toBe(0.70);
     expect(profile.alerts.dumbZoneThreshold).toBe(0.85);
+    expect(profile.taskComplexity).toBe('retrieval');
   });
 
   it('applies overrides', () => {
     const profile = getTemplate('analysis', {
       id: 'my-analyzer',
-      label: 'Custom analyzer',
+      displayName: 'Custom analyzer',
       model: 'claude-opus-4-6',
     });
     expect(profile.id).toBe('my-analyzer');

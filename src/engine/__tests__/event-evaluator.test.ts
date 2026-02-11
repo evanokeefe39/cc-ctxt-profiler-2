@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { EventEvaluator } from '../event-evaluator.js';
 import { extractToolStats } from '../tool-extractor.js';
 import type { TimeSeriesPoint, TranscriptLine } from '../../schemas/index.js';
@@ -18,6 +18,13 @@ describe('EventEvaluator', () => {
     const ev = new EventEvaluator({ agentId: 'test' });
     const events = ev.evaluateTurn(point(0.1));
     expect(events.some((e) => e.type === 'unmatched_agent')).toBe(true);
+  });
+
+  it('unmatched_agent has warning severity', () => {
+    const ev = new EventEvaluator({ agentId: 'test' });
+    const events = ev.evaluateTurn(point(0.1));
+    const unmatchedEvent = events.find((e) => e.type === 'unmatched_agent');
+    expect(unmatchedEvent?.severity).toBe('warning');
   });
 
   it('does not emit unmatched_agent when profileId set', () => {
@@ -112,11 +119,11 @@ describe('EventEvaluator', () => {
     expect(events.some((e) => e.type === 'compaction_insufficient')).toBe(true);
   });
 
-  it('emits scope_creep when exceeding expectedTurns', () => {
+  it('emits scope_creep when exceeding maxTurnsTotal', () => {
     const ev = new EventEvaluator({
       agentId: 'test',
       profileId: 'p1',
-      expectedTurns: [1, 3],
+      maxTurnsTotal: 3,
     });
     ev.evaluateTurn(point(0.10));
     ev.evaluateTurn(point(0.20));

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SessionMonitor } from '../../monitor/session-monitor.js';
 import { loadProfiles } from '../../profiles/loader.js';
+import { openDatabase } from '../../db/database.js';
 
 export const watchCommand = new Command('watch')
   .description('Start live monitoring with dashboard')
@@ -10,6 +11,7 @@ export const watchCommand = new Command('watch')
   .option('--profiles <file>', 'Path to context-profiles.json')
   .option('--port <number>', 'Dashboard port', '8411')
   .option('--no-browser', 'Do not auto-open browser')
+  .option('--persist', 'Persist data to SQLite for browse-mode access')
   .action(async (opts) => {
     const sessionDir = resolve(opts.session);
     if (!existsSync(sessionDir)) {
@@ -29,12 +31,25 @@ export const watchCommand = new Command('watch')
       }
     }
 
+    // Optionally open database for persistence
+    let dbHandle: { db: any; close: () => void } | undefined;
+    let dbOpts: { db?: any; projectKey?: string; sessionId?: string } = {};
+    if (opts.persist) {
+      dbHandle = openDatabase();
+      dbOpts = {
+        db: dbHandle.db,
+        projectKey: 'live-monitor',
+        sessionId: resolve(sessionDir),
+      };
+    }
+
     const port = parseInt(opts.port, 10);
     const monitor = new SessionMonitor({
       sessionDir,
       profilesConfig,
       port,
       eventsLogFile: resolve(sessionDir, 'events.jsonl'),
+      ...dbOpts,
     });
 
     const url = await monitor.start();
@@ -61,6 +76,7 @@ export const watchCommand = new Command('watch')
     const shutdown = async () => {
       console.log('\nShutting down...');
       await monitor.stop();
+      dbHandle?.close();
       process.exit(0);
     };
 

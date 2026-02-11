@@ -47,26 +47,16 @@ export function validateProfiles(config: ProfilesConfig): ValidationError[] {
       });
     }
 
-    // Budgets sum ≈ 1.0 (0.95-1.05)
+    // Budgets sum ≈ 1.0 (0.95-1.05): toolDefinitions + working + systemPrompt
     const budgetSum =
       profile.budgets.systemPrompt +
-      profile.budgets.conversation +
-      profile.budgets.toolResults +
-      profile.budgets.outputReserve;
+      profile.budgets.toolDefinitions +
+      profile.budgets.working;
     if (budgetSum < 0.95 || budgetSum > 1.05) {
       errors.push({
         profileId: profile.id,
         field: 'budgets',
         message: `Budget allocations sum to ${budgetSum.toFixed(3)}, expected ~1.0 (0.95-1.05)`,
-      });
-    }
-
-    // expectedTurns[0] <= expectedTurns[1]
-    if (profile.alerts.expectedTurns[0] > profile.alerts.expectedTurns[1]) {
-      errors.push({
-        profileId: profile.id,
-        field: 'alerts.expectedTurns',
-        message: `expectedTurns min (${profile.alerts.expectedTurns[0]}) must be <= max (${profile.alerts.expectedTurns[1]})`,
       });
     }
 

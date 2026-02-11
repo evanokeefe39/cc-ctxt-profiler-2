@@ -5,7 +5,6 @@ import type {
   AgentSummary,
   ProfilesConfig,
 } from '../schemas/index.js';
-import { FALLBACK_THRESHOLDS } from '../schemas/index.js';
 import { getEffectiveThresholds } from '../profiles/index.js';
 import { classifyHealth } from './health-classifier.js';
 import { generateInsights } from './insight-generator.js';
@@ -38,31 +37,47 @@ export function buildSessionSummary(
       warningThreshold: thresholds.warningThreshold,
       dumbZoneThreshold: thresholds.dumbZoneThreshold,
       maxToolErrorRate: thresholds.maxToolErrorRate,
-      expectedTurns: thresholds.expectedTurns,
+      maxTurnsTotal: thresholds.maxTurnsTotal,
     });
 
     const totalTurns = ts.points.length;
     const peakPct = totalTurns > 0 ? Math.max(...ts.points.map((p) => p.pct)) : 0;
     const finalPct = totalTurns > 0 ? ts.points[totalTurns - 1].pct : 0;
+    const avgContextPct = totalTurns > 0
+      ? ts.points.reduce((sum, p) => sum + p.pct, 0) / totalTurns
+      : 0;
     const turnsInWarning = ts.points.filter((p) => p.pct >= thresholds.warningThreshold).length;
     const turnsInDumbZone = ts.points.filter((p) => p.pct >= thresholds.dumbZoneThreshold).length;
 
-    // Compute tool error rate from events
+    // Compute tool stats from events
     const toolSpikes = agentEvents.filter((e) => e.type === 'tool_error_spike');
-    const toolErrorRate =
-      toolSpikes.length > 0 ? (toolSpikes[toolSpikes.length - 1].data?.errorRate as number ?? 0) : 0;
+    const lastSpike = toolSpikes.length > 0 ? toolSpikes[toolSpikes.length - 1] : null;
+    const toolErrorRate = lastSpike ? (lastSpike.data?.errorRate as number ?? 0) : 0;
+    const toolCallCount = lastSpike ? (lastSpike.data?.totalCalls as number ?? 0) : 0;
+    const toolErrorCount = lastSpike ? (lastSpike.data?.totalErrors as number ?? 0) : 0;
+
+    // Compute event counts by type
+    const eventCounts: Record<string, number> = {};
+    for (const evt of agentEvents) {
+      eventCounts[evt.type] = (eventCounts[evt.type] ?? 0) + 1;
+    }
 
     agentSummaries.push({
       agentId: ts.agentId,
       model: ts.model,
       health,
+      profileId: thresholds.profileId,
       totalTurns,
       peakPct,
       finalPct,
+      avgContextPct,
       turnsInWarning,
       turnsInDumbZone,
       compactions: ts.compactions.length,
+      toolCallCount,
+      toolErrorCount,
       toolErrorRate,
+      eventCounts,
       events: agentEvents,
     });
 
@@ -83,7 +98,7 @@ export function buildSessionSummary(
       events: agentEvents,
       dumbZoneThreshold: thresholds.dumbZoneThreshold,
       warningThreshold: thresholds.warningThreshold,
-      expectedTurns: thresholds.expectedTurns,
+      maxTurnsTotal: thresholds.maxTurnsTotal,
     });
   }
 
@@ -100,10 +115,14 @@ export function buildSessionSummary(
   const startTime = timestamps[0] ?? new Date().toISOString();
   const endTime = timestamps[timestamps.length - 1] ?? startTime;
 
+  // Total duration in ms
+  const totalDuration = new Date(endTime).getTime() - new Date(startTime).getTime();
+
   return {
     sessionId,
     startTime,
     endTime,
+    totalDuration,
     agents: agentSummaries,
     insights: allInsights,
     suggestions,

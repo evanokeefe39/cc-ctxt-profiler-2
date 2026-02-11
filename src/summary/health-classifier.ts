@@ -6,7 +6,7 @@ export interface HealthInput {
   warningThreshold: number;
   dumbZoneThreshold: number;
   maxToolErrorRate: number;
-  expectedTurns: [number, number];
+  maxTurnsTotal: number;
 }
 
 /**
@@ -17,7 +17,7 @@ export interface HealthInput {
  * **unhealthy:** lingered in dz, budget overrun, high errors, >2x expected turns
  */
 export function classifyHealth(input: HealthInput): HealthGrade {
-  const { timeSeries, events, warningThreshold, dumbZoneThreshold, maxToolErrorRate, expectedTurns } = input;
+  const { timeSeries, events, warningThreshold, dumbZoneThreshold, maxToolErrorRate, maxTurnsTotal } = input;
   const totalTurns = timeSeries.points.length;
   if (totalTurns === 0) return 'healthy';
 
@@ -34,14 +34,14 @@ export function classifyHealth(input: HealthInput): HealthGrade {
   // Unhealthy conditions
   if (hasLingering) return 'unhealthy';
   if (hasBudgetOverrun) return 'unhealthy';
-  if (totalTurns > expectedTurns[1] * 2) return 'unhealthy';
+  if (totalTurns > maxTurnsTotal * 2) return 'unhealthy';
   if (hasToolSpike && turnsInDumbZone > 0) return 'unhealthy';
 
   // Degraded conditions
   if (warningPct > 0.20) return 'degraded';
   if (enteredDz && hasCompaction) return 'degraded';
   if (hasToolSpike) return 'degraded';
-  if (totalTurns > expectedTurns[1]) return 'degraded';
+  if (totalTurns > maxTurnsTotal) return 'degraded';
 
   return 'healthy';
 }
